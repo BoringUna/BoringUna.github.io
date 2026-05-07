@@ -3,16 +3,28 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BoringUna | VFX Architect</title>
+    <title>BoringUna | Visual Architect</title>
+    <!-- 核心依赖 -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- 字体与基础样式 -->
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;900&display=swap');
-        body { font-family: 'Inter', sans-serif; background-color: #000; margin: 0; overflow-x: hidden; }
-        canvas { filter: blur(1px); } /* 给背景点阵加一点点朦胧感 */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;700;900&display=swap');
+        * { cursor: crosshair; }
+        body {
+            background-color: #000;
+            color: #fff;
+            margin: 0;
+            font-family: 'Inter', sans-serif;
+            overflow-x: hidden;
+            -webkit-font-smoothing: antialiased;
+        }
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-track { background: #000; }
+        ::-webkit-scrollbar-thumb { background: #333; }
+        .hero-text { font-size: clamp(4rem, 15vw, 14rem); line-height: 0.8; font-weight: 900; letter-spacing: -0.05em; }
     </style>
 </head>
 <body>
@@ -21,9 +33,7 @@
     <script type="text/babel">
         const { useState, useEffect, useRef, useCallback } = React;
 
-        // --- 之前给你的 Portfolio 代码全部粘贴在这里 ---
-        // (为了节省篇幅，我这里直接引用你最喜欢的那个版本逻辑)
-
+        // --- 1. 高密度能量场背景组件 ---
         const RippleBackground = () => {
             const canvasRef = useRef(null);
             const ripplesRef = useRef([]);
@@ -36,68 +46,234 @@
                 const canvas = canvasRef.current;
                 const ctx = canvas.getContext('2d');
                 let animationFrameId;
-                const resize = () => { canvas.width = window.innerWidth; canvas.height = window.innerHeight; };
+
+                const resize = () => {
+                    canvas.width = window.innerWidth;
+                    canvas.height = window.innerHeight;
+                };
                 window.addEventListener('resize', resize);
                 resize();
+
                 const handleMouseMove = (e) => { mouseRef.current = { x: e.clientX, y: e.clientY }; };
                 window.addEventListener('mousemove', handleMouseMove);
 
                 const animate = () => {
                     ctx.clearRect(0, 0, canvas.width, canvas.height);
                     const now = Date.now();
+
+                    // 平滑追踪鼠标
                     trackerRef.current.x += (mouseRef.current.x - trackerRef.current.x) * 0.08;
                     trackerRef.current.y += (mouseRef.current.y - trackerRef.current.y) * 0.08;
+
+                    // 距离触发逻辑
                     const dist = Math.sqrt(Math.pow(trackerRef.current.x - lastEmitPos.current.x, 2) + Math.pow(trackerRef.current.y - lastEmitPos.current.y, 2));
-                    if (dist > 50) {
-                        ripplesRef.current.push({ x: trackerRef.current.x, y: trackerRef.current.y, r: 0, opacity: 0.5, speed: 4.0, type: 'active' });
+                    if (dist > 45) {
+                        ripplesRef.current.push({ x: trackerRef.current.x, y: trackerRef.current.y, r: 0, opacity: 0.5, speed: 4.2, type: 'active' });
                         lastEmitPos.current = { ...trackerRef.current };
                     }
                     if (now - lastAutoTime.current > 2500) {
                         ripplesRef.current.push({ x: trackerRef.current.x, y: trackerRef.current.y, r: 0, opacity: 0.2, speed: 2.5, type: 'idle' });
                         lastAutoTime.current = now;
                     }
-                    // ... 这里的渲染逻辑与之前一致 ...
-                    // 简写绘制逻辑确保运行
-                    const gap = 16;
-                    ripplesRef.current.forEach(r => { r.r += r.speed; r.opacity *= 0.985; });
+
+                    const gap = 15;
+                    const borderGap = 10;
+                    ripplesRef.current.forEach(r => {
+                        r.r += r.speed;
+                        r.opacity *= r.type === 'active' ? 0.98 : 0.992;
+                    });
                     ripplesRef.current = ripplesRef.current.filter(r => r.opacity > 0.01);
 
-                    for (let i = 0; i < canvas.height; i+=gap) {
-                        for (let j = 0; j < canvas.width; j+=gap) {
+                    // 绘制场点
+                    const rows = Math.ceil(canvas.height / gap);
+                    const cols = Math.ceil(canvas.width / gap);
+                    for (let i = 1; i < rows; i++) {
+                        for (let j = 1; j < cols; j++) {
+                            const px = j * gap; const py = i * gap;
                             let intensity = 0;
                             ripplesRef.current.forEach(r => {
-                                const d = Math.sqrt(Math.pow(j-r.x,2)+Math.pow(i-r.y,2));
+                                const d = Math.sqrt(Math.pow(px-r.x,2)+Math.pow(py-r.y,2));
+                                const waveWidth = r.type === 'active' ? 140 : 280;
                                 const diff = Math.abs(d-r.r);
-                                if(diff < 120) intensity += Math.pow(Math.cos((diff/120)*(Math.PI/2)), 5) * r.opacity;
+                                if(diff < waveWidth) intensity += Math.pow(Math.cos((diff/waveWidth)*(Math.PI/2)), 5) * r.opacity;
                             });
                             if(intensity > 0.01) {
                                 ctx.fillStyle = `rgba(255,255,255,${intensity*0.4})`;
-                                ctx.beginPath(); ctx.arc(j, i, 0.8+intensity, 0, Math.PI*2); ctx.fill();
+                                ctx.beginPath(); ctx.arc(px, py, 0.8+intensity, 0, Math.PI*2); ctx.fill();
+                            } else {
+                                ctx.fillStyle = 'rgba(255,255,255,0.03)';
+                                ctx.fillRect(px, py, 0.5, 0.5);
                             }
                         }
                     }
+
+                    // 绘制点阵边框
+                    const drawBorder = () => {
+                        const points = [];
+                        const pad = 6;
+                        for(let x=0; x<canvas.width; x+=borderGap) points.push({x, y:pad},{x, y:canvas.height-pad});
+                        for(let y=borderGap; y<canvas.height-borderGap; y+=borderGap) points.push({x:pad, y},{x:canvas.width-pad, y});
+
+                        points.forEach(pt => {
+                            let bInt = 0;
+                            ripplesRef.current.forEach(r => {
+                                const d = Math.sqrt(Math.pow(pt.x-r.x,2)+Math.pow(pt.y-r.y,2));
+                                const diff = Math.abs(d-r.r);
+                                if(diff < 120) bInt += Math.pow(Math.cos((diff/120)*(Math.PI/2)), 4) * r.opacity;
+                            });
+                            ctx.fillStyle = bInt > 0.1 ? `rgba(255,255,255,${0.2+bInt*0.8})` : `rgba(255,255,255,0.08)`;
+                            if(bInt > 0.2) { ctx.shadowBlur = 8*bInt; ctx.shadowColor = '#fff'; }
+                            ctx.beginPath(); ctx.arc(pt.x, pt.y, 1+bInt*1.5, 0, Math.PI*2); ctx.fill();
+                            ctx.shadowBlur = 0;
+                        });
+                    };
+                    drawBorder();
                     animationFrameId = requestAnimationFrame(animate);
                 };
                 animate();
-                return () => { cancelAnimationFrame(animationFrameId); window.removeEventListener('mousemove', handleMouseMove); };
+                return () => { cancelAnimationFrame(animationFrameId); window.removeEventListener('resize', resize); };
             }, []);
-            return <canvas ref={canvasRef} style={{position:'fixed', inset:0, zIndex:0}} />;
+
+            return <canvas ref={canvasRef} style={{position:'fixed', inset:0, zIndex:0, pointerEvents:'none'}} />;
         };
 
-        const App = () => {
-            // 这里放入你之前的页面 HTML 结构...
+        // --- 2. 作品展示组件 ---
+        const ProjectCard = ({ project, index }) => {
+            const videoRef = useRef(null);
+            const [isHover, setIsHover] = useState(false);
+            useEffect(() => { isHover ? videoRef.current?.play() : videoRef.current?.pause(); }, [isHover]);
+
             return (
-                <div className="relative z-10 text-white p-20">
+                <div
+                    className="group border-b border-white/10 py-20 flex flex-col md:flex-row gap-16 transition-colors hover:bg-white/[0.02]"
+                    onMouseEnter={() => setIsHover(true)} onMouseLeave={() => setIsHover(false)}
+                >
+                    <div className="md:w-1/2 aspect-video bg-white/5 relative overflow-hidden grayscale group-hover:grayscale-0 transition-all duration-700">
+                        <video ref={videoRef} muted loop playsInline className="w-full h-full object-cover opacity-40 group-hover:opacity-100 transition-opacity">
+                            <source src={project.videoUrl} type="video/mp4" />
+                        </video>
+                        <div className="absolute inset-0 bg-black/20 group-hover:bg-transparent"></div>
+                    </div>
+                    <div className="md:w-1/2 flex flex-col justify-center">
+                        <div className="flex items-center gap-4 mb-8">
+                            <span className="text-[11px] font-bold tracking-[0.4em] text-white/30 uppercase">Node.0{index+1}</span>
+                            <span className="h-[1px] w-12 bg-white/10"></span>
+                            <span className="text-[11px] font-bold tracking-[0.4em] text-white/30 uppercase">{project.category}</span>
+                        </div>
+                        <h3 className="text-5xl md:text-7xl font-light uppercase tracking-tighter mb-8 group-hover:translate-x-4 transition-transform duration-500">{project.title}</h3>
+                        <p className="text-gray-500 text-lg leading-relaxed max-w-lg mb-10 font-light italic">{project.description}</p>
+                        <div className="flex gap-8 opacity-20 group-hover:opacity-60 transition-opacity">
+                            {project.tags.map(t => <span key={t} className="text-[10px] font-bold uppercase tracking-widest">{t}</span>)}
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        // --- 3. 根组件 ---
+        const App = () => {
+            const projects = [
+                { title: "Atmospheric", category: "Shader", description: "基于物理的大气散射模拟方案，实现了极致性能下的实时体积光效果。", tags: ["HLSL", "Raymarching"], videoUrl: "https://assets.mixkit.co/videos/preview/mixkit-digital-animation-of-blue-particles-23519-large.mp4" },
+                { title: "Entropy_Sim", category: "VFX", description: "百万级流体粒子仿真。支持动力学碰撞与复杂的矢量场逻辑引导。", tags: ["Compute Shader", "Houdini"], videoUrl: "https://assets.mixkit.co/videos/preview/mixkit-abstract-animation-of-blue-waves-and-smoke-23513-large.mp4" },
+                { title: "Nexus_Pipeline", category: "Tooling", description: "高度自动化的资产处理流程，实现了从 DCC 到引擎的无缝参数化桥接。", tags: ["Python", "C++"], videoUrl: "https://assets.mixkit.co/videos/preview/mixkit-spinning-glowing-lines-animation-23511-large.mp4" }
+            ];
+
+            const skills = {
+                "Rendering": ["HLSL/GLSL", "Deferred/Forward+", "Ray Tracing", "Post-FX"],
+                "Pipeline": ["Houdini VEX", "Maya Python", "Sub Designer", "DCC Tooling"],
+                "Engine": ["Unreal Engine", "Unity", "C++", "Vulkan/DX12"]
+            };
+
+            return (
+                <div className="relative">
                     <RippleBackground />
-                    <nav className="flex justify-between items-center mb-40">
-                        <div className="text-2xl font-black tracking-widest uppercase">BoringUna</div>
-                        <div className="flex gap-10 opacity-40 text-xs uppercase tracking-widest">
-                            <span>Projects</span><span>Stack</span><span>Contact</span>
+
+                    {/* Nav */}
+                    <nav className="fixed top-0 w-full z-50 px-12 py-12 flex justify-between items-center mix-blend-difference">
+                        <div className="text-2xl font-black tracking-[0.4em] uppercase">BoringUna</div>
+                        <div className="hidden md:flex gap-16 text-[10px] font-bold uppercase tracking-[0.4em] text-white/40">
+                            <a href="#PROJECTS" className="hover:text-white">Works</a>
+                            <a href="#STACK" className="hover:text-white">Stack</a>
+                            <a href="#CONTACT" className="hover:text-white">Contact</a>
                         </div>
                     </nav>
-                    <h1 className="text-[12rem] font-black leading-none uppercase tracking-tighter mb-20">Visual<br/>Architect.</h1>
-                    <p className="max-w-xl text-gray-500 italic text-xl border-l border-white/20 pl-10">将数学逻辑转化为有机的数字能量。</p>
-                    {/* ... 更多内容 ... */}
+
+                    {/* Hero */}
+                    <section className="relative h-screen flex flex-col justify-center px-12 max-w-[1600px] mx-auto z-10">
+                        <div className="flex items-center gap-4 mb-12 opacity-40">
+                            <div className="h-[1px] w-12 bg-white"></div>
+                            <span className="text-[11px] font-bold uppercase tracking-[0.8em]">Architecture of Visual Entropy</span>
+                        </div>
+                        <h1 className="hero-text uppercase">Visual<br/>Architect.</h1>
+                        <div className="mt-20 md:flex justify-between items-end">
+                            <p className="text-2xl text-gray-500 max-w-xl font-light italic opacity-60">"数学逻辑与数字能量的奇点。为次世代交互构建极致图形语言。"</p>
+                            <a href="#PROJECTS" className="text-xs font-bold uppercase tracking-[0.5em] flex items-center gap-6 mt-10 md:mt-0 group text-white/40 hover:text-white transition-colors">
+                                EXPLORE WORKS <span className="group-hover:translate-x-4 transition-transform">→</span>
+                            </a>
+                        </div>
+                    </section>
+
+                    {/* Works */}
+                    <section id="PROJECTS" className="relative px-12 py-40 max-w-[1600px] mx-auto z-10 border-t border-white/10">
+                        <div className="mb-20 text-[10px] font-bold tracking-[0.6em] text-white/20 uppercase underline underline-offset-[12px]">Section.01 // Nodes</div>
+                        <div className="space-y-0">
+                            {projects.map((p, i) => <ProjectCard key={i} project={p} index={i} />)}
+                        </div>
+                    </section>
+
+                    {/* Stack */}
+                    <section id="STACK" className="relative px-12 py-40 max-w-[1600px] mx-auto z-10 border-t border-white/10">
+                        <div className="grid grid-cols-1 lg:grid-cols-12 gap-24">
+                            <div className="lg:col-span-4">
+                                <div className="text-[10px] font-bold tracking-[0.6em] text-white/20 uppercase underline underline-offset-[12px] mb-20">Section.02 // Matrix</div>
+                                <p className="text-gray-500 text-sm leading-relaxed font-light mt-10">跨越艺术与工程界限。不仅掌握美术工具，更致力于引擎底层与 Shader 逻辑的极致优化。</p>
+                            </div>
+                            <div className="lg:col-span-8 grid grid-cols-1 md:grid-cols-2 gap-12">
+                                {Object.entries(skills).map(([cat, list]) => (
+                                    <div key={cat} className="p-12 border border-white/5 hover:border-white/20 transition-all group">
+                                        <h4 className="text-[11px] font-black uppercase tracking-[0.5em] text-white/40 mb-12 flex items-center gap-4">
+                                            <span className="w-1.5 h-1.5 bg-white rounded-full"></span>{cat}
+                                        </h4>
+                                        <div className="space-y-6">
+                                            {list.map(s => (
+                                                <div key={s} className="flex justify-between items-end border-b border-white/5 pb-2 group-hover:border-white/10">
+                                                    <span className="text-xl font-light text-gray-500 group-hover:text-white transition-colors">{s}</span>
+                                                    <span className="text-[10px] text-white/10">+</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </section>
+
+                    {/* Footer / Contact */}
+                    <footer id="CONTACT" className="relative px-12 py-60 border-t border-white/10 max-w-[1600px] mx-auto z-10 text-center">
+                        <div className="flex flex-col md:flex-row justify-between items-center gap-20">
+                            <span className="text-[10px] font-black tracking-[1.5em] text-white/20 uppercase font-mono">// Aura_Protocol_v7.5 //</span>
+
+                            <div className="flex gap-20">
+                                {/* WeChat */}
+                                <a href="#" className="text-white/60 hover:text-white transition-all hover:scale-125 group relative">
+                                    <div className="absolute inset-0 bg-white/20 blur-2xl opacity-0 group-hover:opacity-100"></div>
+                                    <svg className="relative" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1"><path d="M7 10c0-4.418 3.582-8 8-8s8 3.582 8 8-3.582 8-8 8c-.838 0-1.639-.129-2.392-.368L9 20l.566-3.267C8.016 15.534 7 13.882 7 10z"/><path d="M11 13c-3.314 0-6 2.239-6 5s2.686 5 6 5c.628 0 1.23-.081 1.794-.236L15 24l-.424-2.45c1.452-.95 2.424-2.583 2.424-4.55 0-2.761-2.686-5-6-5z"/></svg>
+                                </a>
+                                {/* Email */}
+                                <a href="mailto:your-email@example.com" className="text-white/60 hover:text-white transition-all hover:scale-125 group relative">
+                                    <div className="absolute inset-0 bg-white/20 blur-2xl opacity-0 group-hover:opacity-100"></div>
+                                    <svg className="relative" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+                                </a>
+                                {/* Bilibili */}
+                                <a href="#" className="text-white/60 hover:text-white transition-all hover:scale-125 group relative">
+                                    <div className="absolute inset-0 bg-white/20 blur-2xl opacity-0 group-hover:opacity-100"></div>
+                                    <svg className="relative" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1"><rect x="3" y="6" width="18" height="14" rx="3"/><path d="M8 6l-2-4"/><path d="M16 6l2-4"/><circle cx="9" cy="13" r="1"/><circle cx="15" cy="13" r="1"/><path d="M9 17c.5 1 2 1.5 3 1.5s2.5-.5 3-1.5"/></svg>
+                                </a>
+                            </div>
+
+                            <span className="text-[10px] font-black tracking-[1.5em] text-white/20 uppercase font-mono">Zero Color Bias.</span>
+                        </div>
+                    </footer>
                 </div>
             );
         };
